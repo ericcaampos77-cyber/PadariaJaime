@@ -1,0 +1,5 @@
+target/
+*.json
+*.class
+*.jar
+.DS_Store

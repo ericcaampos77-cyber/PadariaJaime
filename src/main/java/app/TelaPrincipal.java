@@ -186,44 +186,41 @@ public class TelaPrincipal extends JFrame {
 
     // ── Dialogs ────────────────────────────────────────────────
     private void dialogVenda() {
-        List<Produto> estoque = app.getEstoque();
-        if (estoque.isEmpty()) { mostrarErro("Nenhum produto no estoque!"); return; }
-
-        String[] nomes = estoque.stream().map(Produto::getNome).toArray(String[]::new);
-
-        JComboBox<String> combo = new JComboBox<>(nomes);
-        JSpinner spinner = new JSpinner(new SpinnerNumberModel(1, 1, 9999, 1));
-        JLabel lblPreco = new JLabel("Preço unitário: R$ -");
-
-        combo.addActionListener(e -> {
-            Produto p = app.buscarProduto((String) combo.getSelectedItem());
-            if (p != null) lblPreco.setText(String.format("Preço unitário: R$ %.2f", p.getPrecoVenda()));
-        });
-        combo.setSelectedIndex(0);
-
-        JPanel p = new JPanel(new GridLayout(4, 2, 8, 8));
-        p.add(new JLabel("Produto:")); p.add(combo);
-        p.add(new JLabel("Quantidade:")); p.add(spinner);
-        p.add(lblPreco); p.add(new JLabel(""));
-
-        int opt = JOptionPane.showConfirmDialog(this, p, "🛒 Registrar Venda",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (opt != JOptionPane.OK_OPTION) return;
-
-        String produto = (String) combo.getSelectedItem();
-        int qtd = (int) spinner.getValue();
-        String resultado = app.registrarVenda(produto, qtd);
-
-        if (resultado.startsWith("OK:")) {
-            double valor = Double.parseDouble(resultado.substring(3).replace(",", "."));
-            JOptionPane.showMessageDialog(this,
-                    String.format("✅ Venda registrada!\n%dx %s\nTotal: R$ %.2f", qtd, produto, valor),
-                    "Venda Realizada", JOptionPane.INFORMATION_MESSAGE);
-        } else {
-            mostrarErro(resultado);
-        }
-        atualizarTudo();
+    List<Produto> estoque = app.getEstoque();
+    if (estoque.isEmpty()) { mostrarErro("Nenhum produto no estoque!"); return; }
+    String[] nomes = estoque.stream().map(Produto::getNome).toArray(String[]::new);
+    JComboBox<String> combo = new JComboBox<>(nomes);
+    JSpinner spinner = new JSpinner(new SpinnerNumberModel(1, 1, 9999, 1));
+    JLabel lblPreco = new JLabel("Preço unitário: R$ -");
+    combo.addActionListener(e -> {
+        Produto p = app.buscarProduto((String) combo.getSelectedItem());
+        if (p != null) lblPreco.setText(String.format("Preço unitário: R$ %.2f", p.getPrecoVenda()));
+    });
+    combo.setSelectedIndex(0);
+    String[] formas = {"💵 Dinheiro", "💳 Débito", "💳 Crédito", "📱 Pix"};
+    JComboBox<String> comboPagamento = new JComboBox<>(formas);
+    JPanel p = new JPanel(new GridLayout(5, 2, 8, 8));
+    p.add(new JLabel("Produto:")); p.add(combo);
+    p.add(new JLabel("Quantidade:")); p.add(spinner);
+    p.add(lblPreco); p.add(new JLabel(""));
+    p.add(new JLabel("Forma de pagamento:")); p.add(comboPagamento);
+    int opt = JOptionPane.showConfirmDialog(this, p, "🛒 Registrar Venda",
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+    if (opt != JOptionPane.OK_OPTION) return;
+    String produto = (String) combo.getSelectedItem();
+    int qtd = (int) spinner.getValue();
+    String formaPagamento = ((String) comboPagamento.getSelectedItem()).replaceAll("[^a-zA-ZÀ-ú ]", "").trim();
+    String resultado = app.registrarVenda(produto, qtd, formaPagamento);
+    if (resultado.startsWith("OK:")) {
+        double valor = Double.parseDouble(resultado.substring(3).replace(",", "."));
+        JOptionPane.showMessageDialog(this,
+                String.format("✅ Venda registrada!\n%dx %s\nTotal: R$ %.2f\nPagamento: %s", qtd, produto, valor, formaPagamento),
+                "Venda Realizada", JOptionPane.INFORMATION_MESSAGE);
+    } else {
+        mostrarErro(resultado);
     }
+    atualizarTudo();
+}
 
     private void dialogDespesa() {
         String input = JOptionPane.showInputDialog(this,

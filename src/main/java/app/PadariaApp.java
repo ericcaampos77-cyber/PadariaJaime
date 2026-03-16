@@ -19,7 +19,7 @@ public class PadariaApp {
     public void carregarDados() {
         try (Connection conn = getConexao(); Statement stmt = conn.createStatement()) {
             stmt.execute("CREATE TABLE IF NOT EXISTS produtos (id SERIAL PRIMARY KEY, nome VARCHAR(100) NOT NULL UNIQUE, preco_custo NUMERIC(10,2) NOT NULL, preco_venda NUMERIC(10,2) NOT NULL, quantidade INTEGER NOT NULL DEFAULT 0)");
-            stmt.execute("CREATE TABLE IF NOT EXISTS vendas (id SERIAL PRIMARY KEY, produto_id INTEGER, produto_nome VARCHAR(100), quantidade INTEGER NOT NULL, valor_total NUMERIC(10,2) NOT NULL, realizada_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+            stmt.execute("CREATE TABLE IF NOT EXISTS vendas (id SERIAL PRIMARY KEY, produto_id INTEGER, produto_nome VARCHAR(100), quantidade INTEGER NOT NULL, valor_total NUMERIC(10,2) NOT NULL, forma_pagamento VARCHAR(20) DEFAULT 'Dinheiro', realizada_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
             stmt.execute("CREATE TABLE IF NOT EXISTS despesas (id SERIAL PRIMARY KEY, descricao VARCHAR(200), valor NUMERIC(10,2) NOT NULL, registrada_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
             stmt.execute("CREATE TABLE IF NOT EXISTS relatorios_dia (id SERIAL PRIMARY KEY, data_hora TIMESTAMP NOT NULL, total_vendas NUMERIC(10,2), total_despesas NUMERIC(10,2), lucro NUMERIC(10,2), relatorio_texto TEXT)");
             System.out.println("Banco de dados pronto!");
@@ -83,6 +83,10 @@ public class PadariaApp {
     }
 
     public String registrarVenda(String nomeProduto, int quantidade) {
+    return registrarVenda(nomeProduto, quantidade, "Dinheiro");
+}
+
+public String registrarVenda(String nomeProduto, int quantidade, String formaPagamento) {
         Produto p = buscarProduto(nomeProduto);
         if (p == null) {
             return "Produto não encontrado.";
@@ -98,14 +102,14 @@ public class PadariaApp {
                 ps1.setInt(1, quantidade);
                 ps1.setString(2, nomeProduto);
                 ps1.executeUpdate();
-                PreparedStatement ps2 = conn.prepareStatement("INSERT INTO vendas (produto_nome, quantidade, valor_total) VALUES (?,?,?)");
+                PreparedStatement ps2 = conn.prepareStatement("INSERT INTO vendas (produto_nome, quantidade, valor_total, forma_pagamento) VALUES (?,?,?,?)");
                 ps2.setString(1, nomeProduto);
                 ps2.setInt(2, quantidade);
                 ps2.setDouble(3, total);
+                ps2.setString(4, formaPagamento);
                 ps2.executeUpdate();
                 conn.commit();
-                return String.format("Venda registrada! %dx %s = R$ %.2f", quantidade, nomeProduto, total);
-            } catch (SQLException e) {
+               return String.format("OK:%.2f", total);  } catch (SQLException e) {
                 conn.rollback();
                 return "Erro: " + e.getMessage();
             }
@@ -239,6 +243,19 @@ public String gerarRelatorioFiltrado(java.time.LocalDate inicio, java.time.Local
     sb.append(String.format("  TOTAL DESPESAS:  R$ %.2f%n", despesas));
     sb.append("========================================\n");
     sb.append(String.format("  LUCRO DO PERÍODO: R$ %.2f%n", lucro));
+    // Formas de pagamento
+    sb.append("----------------------------------------\n");
+    sb.append("FORMAS DE PAGAMENTO:\n");
+    try (Connection conn2 = getConexao()) {
+    PreparedStatement ps3 = conn2.prepareStatement(
+        "SELECT forma_pagamento, SUM(valor_total) as total FROM vendas WHERE DATE(realizada_em) BETWEEN ? AND ? GROUP BY forma_pagamento ORDER BY total DESC");
+    ps3.setDate(1, java.sql.Date.valueOf(inicio));
+    ps3.setDate(2, java.sql.Date.valueOf(fim));
+    ResultSet rs3 = ps3.executeQuery();
+    while (rs3.next()) {
+        sb.append(String.format("  %-10s R$ %.2f%n", rs3.getString("forma_pagamento"), rs3.getDouble("total")));
+    }
+} catch (SQLException e) { sb.append("  Erro ao buscar formas de pagamento.\n"); }
     sb.append("========================================\n");
     return sb.toString();
 }
